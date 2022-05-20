@@ -12,7 +12,8 @@ invoices <- df %>%
     distinct(InvoiceNo, .keep_all=TRUE)
 
 invoice_lines <- df %>%
-    select(StockCode, Quantity, UnitPrice, InvoiceNo)
+    select(StockCode, Quantity, UnitPrice, InvoiceNo) %>%
+    mutate(Total = UnitPrice * Quantity)
 
 products <- df %>%
     distinct(StockCode, Description) %>%
@@ -22,6 +23,7 @@ products <- df %>%
 df <- invoice_lines %>%
     left_join(invoices, on="InvoiceNo") %>%
     left_join(products, on="StockCode")
+
 
 #View(products %>% count(Description) %>% filter(n > 1) %>% inner_join(products, by="Description"))
 #View(products %>% count(StockCode) %>% filter(n > 1) %>% inner_join(products, by="StockCode"))
@@ -37,8 +39,59 @@ df <- invoice_lines %>%
 #¿Como varian las transacciones por dia de la semana?
 #¿Cambian los días de mayor transacción según la región?
 
-#¿Las ventas presentan alguna estacionalidad por mes?    
-#¿Cuales son los días de mayores ventas?
-#Top 10 productos más vendidos
-#¿Cambia el 10 de productos más vendidos por región?
+#¿Las ventas presentan alguna estacionalidad por mes?
+df %>%
+    mutate(Month = month(InvoiceDate)) %>%
+    group_by(Month) %>%
+    summarize(TotalQuantity = sum(Quantity))
 
+df %>%
+    mutate(Month = month(InvoiceDate)) %>%
+    group_by(Month) %>%
+    summarize(TotalSales = sum(Total))
+
+#¿Cuales son los días de mayores ventas?
+df %>%
+    mutate(Month = month(InvoiceDate), Day = day(InvoiceDate)) %>%
+    group_by(Month, Day) %>%
+    summarize(TotalQuantity = sum(Quantity)) %>%
+
+df %>%
+    mutate(Month = month(InvoiceDate), Day = day(InvoiceDate)) %>%
+    group_by(Month, Day) %>%
+    summarize(TotalSales = sum(Total)) %>%
+    arrange(desc(TotalSales)) %>%
+    top_n(10)
+
+#Top 10 productos más vendidos
+invoice_lines %>%
+    group_by(StockCode) %>%
+    summarize(TotalQuantity = sum(Quantity)) %>%
+    arrange(desc(TotalQuantity)) %>%
+    top_n(10) %>%
+    left_join(products, by = "StockCode")
+
+invoice_lines %>%
+    count(StockCode) %>%
+    arrange(desc(n)) %>%
+    top_n(10) %>%
+    left_join(products, by = "StockCode")
+
+invoice_lines %>%
+    group_by(StockCode) %>%
+    summarize(TotalSales = sum(Total)) %>%
+    arrange(desc(TotalSales)) %>%
+    top_n(10) %>%
+    left_join(products, by = "StockCode")
+
+#¿Cambia el top 10 de productos más vendidos por región?
+df %>%
+    filter(Country %in% c('Germany', 'Australia')) %>%
+    group_by(Country, StockCode) %>%
+    summarize(TotalSales = sum(Total)) %>%
+    top_n(10) %>%
+    left_join(products, by = "StockCode") %>%
+    arrange(Country, desc(TotalSales)) %>%
+    ggplot(aes(x = TotalSales, y = Description, fill = Country)) +
+    geom_col() +
+    facet_grid(cols = vars(Country))
