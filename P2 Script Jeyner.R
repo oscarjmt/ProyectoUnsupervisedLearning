@@ -123,7 +123,8 @@ mapdata2 <- left_join(mapdata2, geo_venta_promedio, by=c("region" = "Country")) 
   filter (!is.na(mapdata$total))
 map2 <- ggplot(mapdata2, aes(x=long, y = lat, group=group)) + 
   geom_polygon(aes(fill = venta_promedio), color = "black") + 
-  ggtitle("Ventas Promedio") + labs(fill = "Venta Promedio GBP")
+  ggtitle("Ventas Promedio") + labs(fill = "Venta Promedio GBP") +
+  scale_fill_gradient( low = 'green', high='red') + theme_dark()
 map2
 
 #3c Cantidad de Clientes
