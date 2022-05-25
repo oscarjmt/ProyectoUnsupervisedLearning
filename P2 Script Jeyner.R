@@ -1,6 +1,7 @@
 library(tidyverse)
 library(readxl)
 library(lubridate)
+library(maps)
 
 setwd("D:/Google Drive/UVG/V Semestre/Data Mining/ProyectoUnsupervisedLearning")
 df <- read_excel("Online Retail.xlsx") %>%
@@ -43,7 +44,6 @@ EastAsia = c('Japan', 'Hong Kong', 'Singapore')
 America = c('Canada', 'USA', 'Brazil')
 Other = c('Unspecified', 'European Community', 'Australia', 'RSA')
 
-ggplot(invoices, aes(x=InvoiceDate, fill=Region)) + geom_histogram()
 
 df  <- df  %>% mutate (Region = case_when(
   Country %in% NorthernEurope ~ 'Northern Europe',
@@ -56,6 +56,9 @@ df  <- df  %>% mutate (Region = case_when(
   Country %in% America ~ 'America',
   Country %in% Other ~ 'Other'
 ))
+
+
+ggplot(df, aes(x=InvoiceDate, fill=Region)) + geom_histogram()
 
 df$Subtotal = df$UnitPrice * df$Quantity
 
@@ -79,4 +82,30 @@ df %>% group_by(Region, StockCode) %>% summarize(precio_promedio = mean(UnitPric
 
 #¿La cantidad de productos diferentes que compran los clientes varían por región?
 df %>% group_by(Region) %>% distinct(StockCode) %>% count() %>% arrange(desc(n))
-#Existe una mayor variacion de productos en Europa Occidental
+df %>% group_by(Country) %>% distinct(StockCode) %>% count() %>% arrange(desc(n))
+
+#Existe una mayor disponibilidad  de productos en Europa Occidental
+#La cantidad de SKU en UK es significativa
+
+
+#3a Ventas por pais
+dfgeo <- df
+dfgeo$Country[df$Country == "United Kingdom"] <- "UK"
+dfgeo$Country[df$Country == "Channel Islands"] <- "UK"
+dfgeo$Country[df$Country == "EIRE"] <- "Ireland"
+dfgeo$Country[df$Country == "RSA"] <- "South Africa"
+dfgeo$Country[df$Country == "Hong Kong"] <- "China"
+
+
+mapdata <- map_data("world") ##ggplot2
+geo_ventas <- as.data.frame(dfgeo %>% group_by(Country) %>% 
+                              summarize (total =sum(Subtotal)) %>% arrange(desc(total)))
+mapdata <- left_join(mapdata, geo_ventas, by=c("region"="Country"))
+view(mapdata)
+
+mapdata1 <- mapdata %>% filter (!is.na(mapdata$total))
+view(mapdata1)
+map1 <- ggplot(mapdata1, aes(x=long, y = lat, group=group)) + 
+  geom_polygon(aes(fill = total), color = "black")
+map1
+
