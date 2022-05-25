@@ -60,16 +60,18 @@ df  <- df  %>% mutate (Region = case_when(
 
 ggplot(df, aes(x=InvoiceDate, fill=Region)) + geom_histogram()
 
-df$Subtotal = df$UnitPrice * df$Quantity
+df$Total = df$UnitPrice * df$Quantity
 
 ventas_region <- as.data.frame(
-  df %>% group_by(Region) %>% summarize (total = sum(Subtotal)) %>% arrange(desc(total)) %>% 
-  mutate(porcentage = (total/sum(total)))
-)
+  df %>% group_by(Region) %>% summarize (total_invoice = sum(Total)) %>% 
+    arrange(desc(total_invoice)) %>% 
+    mutate(porcentage = (total_invoice/sum(total_invoice))))
+
 ventas_pais <- as.data.frame(
-  df %>% group_by(Country) %>% summarize (total = sum(Subtotal)) %>% arrange(desc(total)) %>% 
-    mutate(porcentage = (total/sum(total)))
-)
+  df %>% group_by(Country) %>% summarize (total_invoice = sum(Total)) %>% 
+    arrange(desc(total_invoice)) %>% 
+    mutate(porcentage = (total_invoice/sum(total_invoice))))
+
 # 93% ventas son de Europa Occidental
 # 84.6% son de UK
 
@@ -99,13 +101,55 @@ dfgeo$Country[df$Country == "Hong Kong"] <- "China"
 
 mapdata <- map_data("world") ##ggplot2
 geo_ventas <- as.data.frame(dfgeo %>% group_by(Country) %>% 
-                              summarize (total =sum(Subtotal)) %>% arrange(desc(total)))
+                              summarize (total_invoice =sum(Total)) %>% 
+                              arrange(desc(total_invoice)))
 mapdata <- left_join(mapdata, geo_ventas, by=c("region"="Country"))
-view(mapdata)
-
 mapdata1 <- mapdata %>% filter (!is.na(mapdata$total))
-view(mapdata1)
 map1 <- ggplot(mapdata1, aes(x=long, y = lat, group=group)) + 
-  geom_polygon(aes(fill = total), color = "black")
+  geom_polygon(aes(fill = total_invoice), color = "black") + 
+  ggtitle("Ventas Totales") + labs(fill="Ventas Totales GPB")
 map1
 
+#3b Precio de compra promedio
+geo_venta_promedio <- as.data.frame(dfgeo %>% group_by(InvoiceNo, Country) %>% 
+                                      summarise(venta = sum(Total)) %>%
+                                      group_by(Country) %>%
+                                      summarize(venta_promedio = mean(venta)) %>%
+                                    arrange(desc(venta_promedio)))
+#geo_venta_promedio$venta_promedio <- round(geo_venta_promedio$venta_promedio,0)
+
+mapdata2 <- map_data("world")
+mapdata2 <- left_join(mapdata2, geo_venta_promedio, by=c("region" = "Country")) %>% 
+  filter (!is.na(mapdata$total))
+map2 <- ggplot(mapdata2, aes(x=long, y = lat, group=group)) + 
+  geom_polygon(aes(fill = venta_promedio), color = "black") + 
+  ggtitle("Ventas Promedio") + labs(fill = "Venta Promedio GBP")
+map2
+
+#3c Cantidad de Clientes
+geo_clientes <- as.data.frame(dfgeo %>% distinct(CustomerID, Country) %>%
+                                group_by(Country) %>% count() %>%
+                                arrange(desc(n)))
+
+mapdata3 <- map_data("world")
+mapdata3 <- left_join(mapdata3, geo_clientes, by=c("region" = "Country")) %>% 
+  filter (!is.na(mapdata$total))
+map3 <- ggplot(mapdata3, aes(x=long, y = lat, group=group)) + 
+  geom_polygon(aes(fill = factor(n)), color = "black") + ggtitle("Total Clientes") +
+  theme_light() + labs(fill="No. Clientes")
+map3
+
+
+#3d Cantidad de Productos
+geo_sku <- as.data.frame(dfgeo %>% distinct(StockCode, Country) %>%
+                                group_by(Country) %>% count() %>%
+                                arrange(desc(n)))
+
+mapdata4 <- map_data("world")
+mapdata4 <- left_join(mapdata4, geo_sku, by=c("region" = "Country")) %>% 
+  filter (!is.na(mapdata$total))
+map4 <- ggplot(mapdata4, aes(x=long, y = lat, group=group)) + 
+  geom_polygon(aes(fill = factor(n)), color = "black") +
+  ggtitle("Total de Productos") + labs(fill="Productos") +
+  theme_classic()
+map4
