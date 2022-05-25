@@ -105,39 +105,63 @@ df %>% group_by(Region, StockCode) %>% summarize(precio_promedio = mean(UnitPric
 #???La cantidad de productos diferentes que compran los clientes varian por region?
 df %>% group_by(Region) %>% distinct(StockCode) %>% count() %>% arrange(desc(n))
 
+#---------------------Juan Fer--------------------------------------------------
 
 #???Cuales son los articulos que se compran en mayor cantidad?
-df %>% 
+en_mayor_cantidad<-df %>% 
   group_by(StockCode, Description)%>% 
   summarise(Quantity=sum(Quantity))%>% 
   arrange(desc(Quantity))
+en_mayor_cantidad<-head(en_mayor_cantidad,10)
+
+ggplot(en_mayor_cantidad) +
+  geom_bar(aes(y=Quantity, x=reorder(Description, Quantity)),stat="identity", fill="steelblue")+
+  theme(axis.text.x = element_text(angle = 60, vjust = 0.5, hjust=0.5))
+
 
 df %>% group_by(StockCode, Description) %>% count() %>% arrange(desc(n))
 
 
 #???Como varian las transacciones por dia de la semana?
-df %>%
+trans_dia<-df %>%
   mutate(weekday = wday(InvoiceDate)) %>%
   mutate(weekday = factor(weekday, levels = c(1, 2, 3, 4, 5, 6, 7), 
                           labels = c("Domingo", "Lunes", "Martes", "Miercoles", 
                                      "Jueves", "Viernes", "Sabado"))) %>%
   group_by(weekday) %>%
-  distinct(InvoiceNo) %>%
-  count()%>% 
-  arrange(desc(n))
+  distinct(InvoiceNo)
+           
+ggplot(trans_dia, aes(weekday))+
+  geom_bar(fill ="steelblue")+
+  labs(title= "¿Cómo varían las transacciones por día de la semana?", x="Dia", y="Conteo")
+# %>%count()%>% arrange(desc(n))           
+  
+df
 
 #???Cambian los dias de mayor transaccion segun la region?
-df %>%
-  mutate(weekday = wday(InvoiceDate)) %>%
-  mutate(weekday = factor(weekday, levels = c(1, 2, 3, 4, 5, 6, 7), 
-                          labels = c("Domingo", "Lunes", "Martes", "Miercoles", 
-                                     "Jueves", "Viernes", "Sabado"))) %>%
-  filter(Region=="Northern Europe") %>%
-  group_by(weekday) %>%
-  distinct(InvoiceNo) %>%
-  count()%>% 
-  arrange(desc(n))
-#Para todas las regiones 
+
+regiones<-c('Northern Europe','Western Europe','Central Europe', 'Southern Europe',
+  'Eastern Europe','Middle East','East Asia','America','Other'
+)
+regiones
+
+for(i in regiones){
+  temp<-df %>%
+    mutate(weekday = wday(InvoiceDate)) %>%
+    mutate(weekday = factor(weekday, levels = c(1, 2, 3, 4, 5, 6, 7), 
+                            labels = c("Domingo", "Lunes", "Martes", "Miercoles", 
+                                       "Jueves", "Viernes", "Sabado"))) %>%
+    filter(Region==i) %>%
+    group_by(weekday) %>%
+    distinct(InvoiceNo)
+  print(ggplot(temp, aes(weekday))+
+    geom_bar(fill ="steelblue")+
+    labs(title= i, x="Dia", y="Conteo"))
+  Sys.sleep(2)
+}
+
+
+#-------------------------------------------------------------------------------
 
 
 #???Las ventas presentan alguna estacionalidad por mes?
@@ -202,32 +226,105 @@ df %>%
 #        Clustering        #
 #==========================#
 
+
 clients <- df %>%
   group_by(CustomerID) %>%
-  summarize(AvgPrice = mean(UnitPrice), AvgQuantity = mean(Quantity),
+  summarise(AvgPrice = mean(UnitPrice), AvgQuantity = mean(Quantity),
             Total = sum(Total))
 
 clients <- df %>%
   group_by(InvoiceNo) %>%
-  summarize(TotalInvoice = sum(Total)) %>%
+  summarise(TotalInvoice = sum(Total)) %>%
   left_join(invoices, by = "InvoiceNo") %>%
   mutate(Weekend = wday(InvoiceDate, week_start = 1) < 6,
          UK = as.integer(Country == "United Kingdom")) %>%
   group_by(CustomerID) %>%
-  summarize(Invoices = n(), AvgInvoice = mean(TotalInvoice),
+  summarise(Invoices = n(), AvgInvoice = mean(TotalInvoice),
             Weekend = mean(Weekend), UK = mean(UK),
-            PerWeek = n() / as.numeric(difftime(max(InvoiceDate),
+            PerWeek = 1000*n() / as.numeric(difftime(max(InvoiceDate),
                                                 min(InvoiceDate),
                                                 units = "weeks"))) %>%
   mutate(PerWeek = ifelse(PerWeek == Inf, 0, PerWeek)) %>%
   left_join(clients, by = "CustomerID")
 
+#Exploracion para observar datos atipicos y eliminarlos 
+ggplot(clients, aes(y=Invoices))+
+  geom_boxplot()+
+  scale_y_log10()
+
+ggplot(clients, aes(y=AvgInvoice))+
+  geom_boxplot()+
+  scale_y_log10()
+
+
+ggplot(clients, aes(y=Weekend))+
+  geom_boxplot()
+
+ggplot(clients, aes(y=UK))+
+  geom_boxplot()
+
+ggplot(clients, aes(y=PerWeek))+
+  geom_boxplot()+
+  scale_y_log10()
+
+
+ggplot(clients, aes(y=AvgPrice))+
+  geom_boxplot()+
+  scale_y_log10()
+
+ggplot(clients, aes(y=AvgQuantity))+
+  geom_boxplot()+
+  scale_y_log10()
+
+ggplot(clients, aes(y=Total))+
+  geom_boxplot()+
+  scale_y_log10()
+
+#Se crean variables logaritmicas para las variables que necesitan esta escala 
+
+clients$log_Invoices<-log(clients$Invoices)
+clients$log_AvgInvoice<-log(clients$AvgInvoice)
+clients$log_AvgPrice<-log(clients$AvgPrice)
+clients$log_AvgQuantity<-log(clients$AvgQuantity)
+clients$log_Total<-log(clients$Total)
+
+#Se eliminan los outliers a traves de las variables creadas anteriormente 
+clients<-clients[!clients$log_Invoices %in% boxplot.stats(clients$log_Invoices)$out,]
+clients<-clients[!clients$log_AvgInvoice %in% boxplot.stats(clients$log_AvgInvoice)$out,]
+clients<-clients[!clients$log_AvgPrice %in% boxplot.stats(clients$log_AvgPrice)$out,]
+clients<-clients[!clients$log_AvgQuantity %in% boxplot.stats(clients$log_AvgQuantity)$out,]
+clients<-clients[!clients$log_Total %in% boxplot.stats(clients$log_Total)$out,]
+clients<-clients[!clients$Weekend %in% boxplot.stats(clients$Weekend)$out,]
+
+
+#Se eliminan las variables log 
+clients$log_AvgInvoice=NULL
+clients$log_AvgPrice=NULL
+clients$log_AvgQuantity=NULL
+clients$log_Invoices=NULL
+clients$log_Total=NULL
+
+#comprobar que se estan eliminando
+'''
+length(boxplot(log(clients$Invoices))$out)
+length(boxplot(log(clients$AvgInvoice))$out)
+length(boxplot(log(clients$AvgPrice))$out)
+length(boxplot(log(clients$AvgQuantity))$out)
+length(boxplot(log(clients$Total))$out)
+lenght(boxplot(log(clients$PerWeek))$out)
+'''
+
+#Se crea el df para la clusterización
+clients_cluster<-clients%>%
+  select(-CustomerID)
+
+
+
 #Se usa scale por las escalan varían mucho entre ellas 
-colSums(is.na(clients))
-colSums(is.na(df))
-clients <- na.omit(clients)
-clients_scaled= scale(clients)
-#hay 1 NA en customer ID y varios en DF 
+
+
+clients_scaled= scale(clients_cluster)
+
 
 
 
@@ -271,10 +368,12 @@ model_customers <- kmeans(clients_scaled, centers = 3)
 # Extraer el vactor con los valores de clusters asignados
 cluster_k <- as.data.frame(model_customers$cluster)
 colnames(cluster_k) = "cluster_k"
-
+cluster_k%>%count(cluster_k)
 # Generar un dataframe con los datos de los clientes y el cluster
-segment_customers_k = bind_cols(clients, cluster_k) %>%
+segment_customers_k = bind_cols(clients_cluster, cluster_k) %>%
   mutate(cluster_k = as.factor(cluster_k))
+
+
 
 # Calculamos el tamaño de cada cluster
 Conteo_clusters1 = segment_customers_k %>%
@@ -286,7 +385,11 @@ clusplot(segment_customers_k,
          segment_customers_k$cluster_k, 
          shape=TRUE, color=TRUE, labels=2, shade = T)
 
+Resumen_K = segment_customers_k %>% 
+  group_by(cluster_k) %>% 
+  summarise_all(funs(mean(.)))
 
+Resumen_K
 #==========================#
 #    Association Rules     #
 #==========================#
