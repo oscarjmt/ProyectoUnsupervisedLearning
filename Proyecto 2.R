@@ -6,7 +6,7 @@ library(weights)
 library(arules)
 library(RecordLinkage)
 library(maps)
-
+library(ggmap)
 
 #==========================#
 #    Limpieza de datos     #
@@ -46,6 +46,14 @@ df <- invoice_lines %>%
 #==========================#
 #   Exploracion de datos   #
 #==========================#
+
+#Tipos de datos
+str(df)
+
+#Distribuciones
+hist(df$Quantity)
+hist(df$UnitPrice)
+hist(df$Total)
 
 #¿Los clientes son recurrentes o solo compran en una ocasion?
 ggplot(invoices, aes(x=InvoiceDate, fill=Country)) +
@@ -288,7 +296,6 @@ clients$log_AvgQuantity=NULL
 clients$log_Invoices=NULL
 clients$log_Total=NULL
 
-
 clients_no_out <- clients %>%
     filter(Invoices < 500,
            AvgInvoice < 15000,
@@ -345,7 +352,7 @@ ggplot(sil_df, aes(x = k, y = sil_width)) +
 set.seed(2)
 
 # Construir un modelo k-means model con los datos de customers_spend con k=4
-model_customers <- kmeans(clients_scaled, centers = 4)
+model_customers <- kmeans(clients_scaled, centers = 3)
 
 # Extraer el vactor con los valores de clusters asignados
 cluster_k <- as.data.frame(model_customers$cluster)
@@ -368,48 +375,63 @@ segment_customers_k2 <- clients %>%
     left_join(bind_cols(clients_no_out, cluster_k) %>%
                   select(CustomerID, cluster_k),
               by="CustomerID") %>%
-    mutate(cluster_k = replace_na(cluster_k, 5))
+    mutate(cluster_k = replace_na(cluster_k, 4))
 
 ggplot(segment_customers_k2, aes(x = factor(cluster_k),
                                  y = Invoices,
                                  color=factor(cluster_k))) +
     geom_boxplot() +
-    scale_y_log10()
+    scale_y_log10() +
+    theme(legend.position="none") +
+    xlab("Cluster")
     
 ggplot(segment_customers_k2, aes(x = factor(cluster_k),
                                  y = AvgInvoice,
                                  color=factor(cluster_k))) +
     geom_boxplot() +
-    scale_y_log10()
+    scale_y_log10() +
+    theme(legend.position="none") +
+    xlab("Cluster")
 
 ggplot(segment_customers_k2, aes(x = factor(cluster_k),
                                  y = Weekday,
                                  color=factor(cluster_k))) +
     geom_boxplot() +
+    theme(legend.position="none") +
+    xlab("Cluster")
+
 
 ggplot(segment_customers_k2, aes(x = factor(cluster_k),
                                  y = PerWeek,
                                  color=factor(cluster_k))) +
     geom_boxplot() +
-    scale_y_log10()
+    scale_y_log10() +
+    theme(legend.position="none") +
+    xlab("Cluster")
 
 ggplot(segment_customers_k2, aes(x = factor(cluster_k),
                                  y = AvgPrice,
                                  color=factor(cluster_k))) +
     geom_boxplot() +
-    scale_y_log10()
+    scale_y_log10() +
+    theme(legend.position="none") +
+    xlab("Cluster")
 
 ggplot(segment_customers_k2, aes(x = factor(cluster_k),
                                  y = AvgQuantity,
                                  color=factor(cluster_k))) +
     geom_boxplot() +
-    scale_y_log10()
+    scale_y_log10() +
+    theme(legend.position="none") +
+    xlab("Cluster")
 
 ggplot(segment_customers_k2, aes(x = factor(cluster_k),
                                  y = Total,
                                  color=factor(cluster_k))) +
     geom_boxplot() +
-    scale_y_log10()
+    scale_y_log10() +
+    theme(legend.position="none") +
+    xlab("Cluster")
 
 ggplot(segment_customers_k2, aes(x = factor(cluster_k), fill = factor(UK))) +
     geom_bar(position = "fill")
@@ -441,6 +463,7 @@ View(rules_df %>%
 #   Geografia Analitica    #
 #==========================#
 
+#3a Ventas por pais
 dfgeo <- df
 dfgeo$Country[df$Country == "United Kingdom"] <- "UK"
 dfgeo$Country[df$Country == "Channel Islands"] <- "UK"
@@ -448,18 +471,91 @@ dfgeo$Country[df$Country == "EIRE"] <- "Ireland"
 dfgeo$Country[df$Country == "RSA"] <- "South Africa"
 dfgeo$Country[df$Country == "Hong Kong"] <- "China"
 
+
 mapdata <- map_data("world") ##ggplot2
-geo_ventas <- as.data.frame(dfgeo %>%
-                                group_by(Country) %>% 
-                                summarise(total_invoice = sum(Total)) %>%
+geo_ventas <- as.data.frame(dfgeo %>% group_by(Country) %>% 
+                                summarize (total_invoice =sum(Total)) %>% 
                                 arrange(desc(total_invoice)))
 mapdata <- left_join(mapdata, geo_ventas, by=c("region"="Country"))
-view(mapdata)
-
-mapdata1 <- mapdata %>% filter(!is.na(mapdata$total_invoice))
-view(mapdata1)
+mapdata1 <- mapdata %>% filter (!is.na(mapdata$total))
 map1 <- ggplot(mapdata1, aes(x=long, y = lat, group=group)) + 
-    geom_polygon(aes(fill = total_invoice), color = "black") +
-    ggtitle("Ventas totales")
+    geom_polygon(aes(fill = total_invoice), color = "black") + 
+    ggtitle("Ventas Totales") + labs(fill="Ventas Totales GPB")
 map1
+
+#3b Precio de compra promedio
+geo_venta_promedio <- as.data.frame(dfgeo %>% group_by(InvoiceNo, Country) %>% 
+                                        summarise(venta = sum(Total)) %>%
+                                        group_by(Country) %>%
+                                        summarize(venta_promedio = mean(venta)) %>%
+                                        arrange(desc(venta_promedio)))
+#geo_venta_promedio$venta_promedio <- round(geo_venta_promedio$venta_promedio,0)
+
+mapdata2 <- map_data("world")
+mapdata2 <- left_join(mapdata2, geo_venta_promedio, by=c("region" = "Country")) %>% 
+    filter (!is.na(mapdata$total))
+map2 <- ggplot(mapdata2, aes(x=long, y = lat, group=group)) + 
+    geom_polygon(aes(fill = venta_promedio), color = "black") + 
+    ggtitle("Ventas Promedio") + labs(fill = "Venta Promedio GBP") +
+    scale_fill_gradient( low = 'green', high='red') + theme_dark()
+map2
+
+#3c Cantidad de Clientes
+geo_clientes <- as.data.frame(dfgeo %>% distinct(CustomerID, Country) %>%
+                                  group_by(Country) %>% count() %>%
+                                  arrange(desc(n)))
+
+mapdata3 <- map_data("world")
+mapdata3 <- left_join(mapdata3, geo_clientes, by=c("region" = "Country")) %>% 
+    filter (!is.na(mapdata$total))
+map3 <- ggplot(mapdata3, aes(x=long, y = lat, group=group)) + 
+    geom_polygon(aes(fill = factor(n)), color = "black") + ggtitle("Total Clientes") +
+    theme_light() + labs(fill="No. Clientes")
+map3
+
+
+#3d Cantidad de Productos
+geo_sku <- as.data.frame(dfgeo %>% distinct(StockCode, Country) %>%
+                             group_by(Country) %>% count() %>%
+                             arrange(desc(n)))
+
+mapdata4 <- map_data("world")
+mapdata4 <- left_join(mapdata4, geo_sku, by=c("region" = "Country")) %>% 
+    filter (!is.na(mapdata$total))
+map4 <- ggplot(mapdata4, aes(x=long, y = lat, group=group)) + 
+    geom_polygon(aes(fill = factor(n)), color = "black") +
+    ggtitle("Total de Productos") + labs(fill="Productos") +
+    theme_classic()
+map4
+
+#En google
+g_api_key <- "AIzaSyBcOQ6V6NuKrHfH6nOyT-PAU97GD65U8Ms"
+register_google(key=g_api_key)
+
+geo_sku <- geo_sku %>% mutate(coord=geocode(Country), source = "google")
+gmap1 <- ggmap(get_googlemap(center = "Ivory Coast", zoom=1, maptype = "satellite", color = "color")) +
+    geom_point(data=geo_sku, aes(x=coord$lon, y=coord$lat, alpha= 0.5, size =n)) +
+    guides(color=F) + labs(size="No. Productos")
+gmap1
+
+
+geo_venta_promedio <- geo_venta_promedio %>% mutate(coord=geocode(Country), source = "google")
+gmap2 <- ggmap(get_googlemap(center = "Ivory Coast", zoom=1, maptype = "satellite", color = "color")) +
+    geom_point(data=geo_venta_promedio, aes(x=coord$lon, y=coord$lat, alpha= 0.5, size =venta_promedio)) +
+    labs(size="Venta Promedio")
+gmap2
+
+
+geo_clientes <- geo_clientes %>% mutate(coord=geocode(Country), source = "google")
+gmap3 <- ggmap(get_googlemap(center = "Ivory Coast", zoom=1, maptype = "satellite", color = "color")) +
+    geom_point(data=geo_clientes, aes(x=coord$lon, y=coord$lat, alpha= 0.5, size =n)) +
+    guides(color=F) + labs(size="No. Clientes")
+gmap3
+
+
+geo_ventas <- geo_ventas %>% mutate(coord=geocode(Country), source = "google")
+gmap4 <- ggmap(get_googlemap(center = "Ivory Coast", zoom=1, maptype = "satellite", color = "color")) +
+    geom_point(data=geo_ventas, aes(x=coord$lon, y=coord$lat, alpha= 0.5, size =total_invoice)) +
+    guides(color=F) + labs(size="Ventas Totales")
+gmap4
 
