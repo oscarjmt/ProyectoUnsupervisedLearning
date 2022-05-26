@@ -29,8 +29,11 @@ df <- invoice_lines %>%
 #¿Los clientes son recurrentes o solo compran en una ocasión?
 ggplot(invoices, aes(x=InvoiceDate, fill=Country)) + geom_histogram()
 invoices %>% distinct(Country) %>% print(n=38)
-invoices %>% count(CustomerID) %>% summarize(mean(n))
-
+invoices %>% count(CustomerID) %>% summarise(mean(n))
+ventas_por_cliente <- invoices %>% group_by(CustomerID) %>% count() %>% 
+  arrange(desc(n)) %>% filter(!is.na(CustomerID))  
+ggplot(data=ventas_por_cliente, aes(x=CustomerID, y=n)) + geom_point() + 
+  theme_light() + ggtitle("Ventas por cliente") + ylab('Frecuencia')
 # el cliente tipico como entre 4 a 5 veces en el periodo analizado
 
 #¿Cuanto se vende en total por cada región?
@@ -50,8 +53,8 @@ Other = c('Unspecified', 'European Community', 'Australia', 'RSA')
 df  <- df  %>% mutate (Region = case_when(
   Country %in% NorthernEurope ~ 'Northern Europe',
   Country %in% WesternEurope ~ 'Western Europe',
-  Country  %in% CentralEurope ~ 'Central Europe',
-  Country  %in% SouthernEurope ~ 'Southern Europe',
+  Country %in% CentralEurope ~ 'Central Europe',
+  Country %in% SouthernEurope ~ 'Southern Europe',
   Country %in% EasternEurope ~ 'Eastern Europe',
   Country %in% MiddleEast ~ 'Middle East',
   Country %in% EastAsia ~ 'East Asia',
