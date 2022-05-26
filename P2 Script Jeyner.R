@@ -3,7 +3,7 @@ library(readxl)
 library(lubridate)
 library(maps)
 
-setwd("D:/Google Drive/UVG/V Semestre/Data Mining/ProyectoUnsupervisedLearning")
+#setwd("D:/Google Drive/UVG/V Semestre/Data Mining/ProyectoUnsupervisedLearning")
 df <- read_excel("Online Retail.xlsx") %>%
   mutate(StockCode = toupper(StockCode)) %>%
   filter(Quantity > 0, UnitPrice > 0)
