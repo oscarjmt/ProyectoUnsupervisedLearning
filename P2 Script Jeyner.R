@@ -2,8 +2,9 @@ library(tidyverse)
 library(readxl)
 library(lubridate)
 library(maps)
+library(ggmap)
 
-#setwd("D:/Google Drive/UVG/V Semestre/Data Mining/ProyectoUnsupervisedLearning")
+setwd("D:/Google Drive/UVG/V Semestre/Data Mining/ProyectoUnsupervisedLearning")
 df <- read_excel("Online Retail.xlsx") %>%
   mutate(StockCode = toupper(StockCode)) %>%
   filter(Quantity > 0, UnitPrice > 0)
@@ -29,6 +30,7 @@ df <- invoice_lines %>%
 ggplot(invoices, aes(x=InvoiceDate, fill=Country)) + geom_histogram()
 invoices %>% distinct(Country) %>% print(n=38)
 invoices %>% count(CustomerID) %>% summarize(mean(n))
+
 # el cliente tipico como entre 4 a 5 veces en el periodo analizado
 
 #¿Cuanto se vende en total por cada región?
@@ -154,3 +156,34 @@ map4 <- ggplot(mapdata4, aes(x=long, y = lat, group=group)) +
   ggtitle("Total de Productos") + labs(fill="Productos") +
   theme_classic()
 map4
+
+#En google
+g_api_key <- "AIzaSyBcOQ6V6NuKrHfH6nOyT-PAU97GD65U8Ms"
+register_google(key=g_api_key)
+
+geo_sku <- geo_sku %>% mutate(coord=geocode(Country), source = "google")
+gmap1 <- ggmap(get_googlemap(center = "Ivory Coast", zoom=1, maptype = "satellite", color = "color")) +
+  geom_point(data=geo_sku, aes(x=coord$lon, y=coord$lat, alpha= 0.5, size =n)) +
+  guides(color=F) + labs(size="No. Productos")
+gmap1
+
+
+geo_venta_promedio <- geo_venta_promedio %>% mutate(coord=geocode(Country), source = "google")
+gmap2 <- ggmap(get_googlemap(center = "Ivory Coast", zoom=1, maptype = "satellite", color = "color")) +
+  geom_point(data=geo_venta_promedio, aes(x=coord$lon, y=coord$lat, alpha= 0.5, size =venta_promedio)) +
+  labs(size="Venta Promedio")
+gmap2
+
+
+geo_clientes <- geo_clientes %>% mutate(coord=geocode(Country), source = "google")
+gmap3 <- ggmap(get_googlemap(center = "Ivory Coast", zoom=1, maptype = "satellite", color = "color")) +
+  geom_point(data=geo_clientes, aes(x=coord$lon, y=coord$lat, alpha= 0.5, size =n)) +
+  guides(color=F) + labs(size="No. Clientes")
+gmap3
+
+
+geo_ventas <- geo_ventas %>% mutate(coord=geocode(Country), source = "google")
+gmap4 <- ggmap(get_googlemap(center = "Ivory Coast", zoom=1, maptype = "satellite", color = "color")) +
+  geom_point(data=geo_ventas, aes(x=coord$lon, y=coord$lat, alpha= 0.5, size =total_invoice)) +
+  guides(color=F) + labs(size="Ventas Totales")
+gmap4
